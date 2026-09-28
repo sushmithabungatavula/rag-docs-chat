@@ -1,4 +1,4 @@
-# Chat With Your Docs
+# Chat With Your Docs — RAG App
 
 Upload PDFs or text files and ask questions. Answers come only from your documents and cite the exact passages they used. Click a citation to see the source text highlighted.
 

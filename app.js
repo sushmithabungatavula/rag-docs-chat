@@ -473,7 +473,7 @@ function route() {
   $$(".page").forEach(p => (p.hidden = p.dataset.page !== name));
   $$("[data-nav]").forEach(a => a.dataset.nav === name ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
   $("pageTitle").textContent = TITLES[name];
-  document.title = `${TITLES[name]} · Ask your docs`;
+  document.title = `${TITLES[name]} · Chat With Your Docs — RAG App`;
   if (name === "chat") $("q").focus();
 }
 
