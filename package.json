@@ -1,0 +1,11 @@
+{
+  "name": "rag-docs-chat",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Chat with your documents: a RAG app with in-browser embeddings, hybrid search and cited answers.",
+  "scripts": {
+    "dev": "vercel dev",
+    "test": "node --test tests/*.test.js"
+  }
+}

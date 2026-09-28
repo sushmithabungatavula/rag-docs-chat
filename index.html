@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chat With Your Docs</title>
+<meta name="description" content="Upload documents and ask questions. Answers cite the source passages.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+<div class="shell">
+  <nav class="side" aria-label="Main">
+    <div class="brand"><span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 4h10l4 4v12H5z"/><path d="M9 12h6M9 16h4"/></svg></span><span>Ask your docs</span></div>
+    <a href="#overview" data-nav="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="7" height="9" rx="1"/><rect x="13" y="4" width="7" height="5" rx="1"/><rect x="13" y="11" width="7" height="9" rx="1"/><rect x="4" y="15" width="7" height="5" rx="1"/></svg>Overview</a>
+    <a href="#chat" data-nav="chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>Chat</a>
+    <a href="#documents" data-nav="documents"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>Documents<span class="count" id="navDocCount"></span></a>
+    <a href="#retrieval" data-nav="retrieval"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>Retrieval lab</a>
+    <a href="#activity" data-nav="activity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>Activity</a>
+    <a href="#settings" data-nav="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Settings</a>
+    <div class="side-foot">
+      <div><span class="dot" id="modelDot"></span><span id="modelState">Embedding model not loaded</span></div>
+      <div><span class="dot" id="apiDot"></span><span id="apiState">Checking API</span></div>
+    </div>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <h1 id="pageTitle">Overview</h1>
+      <div class="top-actions">
+        <button class="btn ghost" id="pasteOpen">Paste text</button>
+        <button class="btn" id="uploadBtn">Add documents</button>
+      </div>
+    </header>
+
+    <!-- Overview -->
+    <section class="page" data-page="overview">
+      <div class="panel pipe-panel">
+        <div class="panel-head"><h2>Pipeline</h2><span class="hint" id="pipeHint">Live status of each step</span></div>
+        <ol class="pipe">
+          <li class="step idle" id="s-upload"><span class="node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5M5 15v4h14v-4"/></svg></span><b>Upload</b><small>No files yet</small></li>
+          <li class="step idle" id="s-chunk"><span class="node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 8l12 10M8 16L20 6"/></svg></span><b>Chunk</b><small>Waiting</small></li>
+          <li class="step idle" id="s-embed"><span class="node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1"/></svg></span><b>Embed</b><small>Waiting</small></li>
+          <li class="step idle" id="s-retrieve"><span class="node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg></span><b>Retrieve</b><small>Ask a question</small></li>
+          <li class="step idle" id="s-answer"><span class="node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l-5-5 5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/></svg></span><b>Answer</b><small>Ask a question</small></li>
+        </ol>
+      </div>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="empty-state panel" id="overviewEmpty">
+        <h2>Add your first document</h2>
+        <p>Drop a PDF or text file anywhere on this page. The app splits it into chunks, embeds each one in your browser, and makes it searchable.</p>
+        <button class="btn" data-action="upload">Add documents</button>
+      </div>
+
+      <div class="grid-2" id="overviewCharts">
+        <div class="panel"><div class="panel-head"><h2>Answer time</h2><span class="hint">Last 20 questions, seconds</span></div><div id="chartLatency"></div></div>
+        <div class="panel"><div class="panel-head"><h2>Retrieval quality</h2><span class="hint">Best semantic match per question, 0 to 1</span></div><div id="chartSim"></div></div>
+        <div class="panel"><div class="panel-head"><h2>Chunks per document</h2><a class="hint link" href="#documents">All documents</a></div><div id="chartDocs"></div></div>
+        <div class="panel"><div class="panel-head"><h2>Recent questions</h2><a class="hint link" href="#activity">Full log</a></div><div id="recentList"></div></div>
+      </div>
+    </section>
+
+    <!-- Chat -->
+    <section class="page chat-page" data-page="chat" hidden>
+      <div class="chat-col">
+        <div class="thread" id="thread"><div class="thread-inner" id="threadInner">
+          <div class="intro" id="intro">
+            <h2>Ask a question about your files.</h2>
+            <p>Answers use only your documents and cite each passage. Click a citation to read the source.</p>
+          </div>
+        </div></div>
+        <div class="composer">
+          <div class="composer-inner">
+            <textarea id="q" rows="1" placeholder="Ask about your documents"></textarea>
+            <button class="btn" id="send">Ask</button>
+            <button class="btn ghost" id="stop" hidden>Stop</button>
+          </div>
+          <div class="status" id="chatStatus"></div>
+        </div>
+      </div>
+      <aside class="source" id="source" hidden>
+        <div class="source-head"><strong id="sourceTitle"></strong><button class="icon-btn" id="sourceClose" aria-label="Close source">Close</button></div>
+        <div class="source-body" id="sourceBody"></div>
+      </aside>
+    </section>
+
+    <!-- Documents -->
+    <section class="page" data-page="documents" hidden>
+      <div class="drop" id="drop" data-action="upload" role="button" tabindex="0">
+        <strong>Drop files here or click to choose</strong>
+        <span>PDF up to 20 MB. TXT, MD, CSV, JSON, HTML up to 3 MB. Files stay in your browser.</span>
+      </div>
+      <div class="panel table-panel">
+        <table class="table" id="docTable">
+          <thead><tr><th>Name</th><th>Type</th><th class="num">Words</th><th class="num">Chunks</th><th>Added</th><th><span class="sr">Actions</span></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Retrieval lab -->
+    <section class="page" data-page="retrieval" hidden>
+      <div class="panel">
+        <p class="lead">Test search without calling the AI. See how semantic and keyword rankings differ, and which chunks the fused ranking would send.</p>
+        <div class="lab-bar">
+          <input id="labQ" type="search" placeholder="Type a query">
+          <button class="btn" id="labRun">Search</button>
+        </div>
+        <div class="hint" id="labMeta"></div>
+      </div>
+      <div class="grid-3" id="labCols"></div>
+    </section>
+
+    <!-- Activity -->
+    <section class="page" data-page="activity" hidden>
+      <div class="toolbar">
+        <span class="hint" id="actSummary"></span>
+        <span class="spacer"></span>
+        <button class="btn ghost" id="exportCsv">Export CSV</button>
+        <button class="btn ghost danger" id="clearLog">Clear log</button>
+      </div>
+      <div class="panel table-panel">
+        <table class="table" id="actTable">
+          <thead><tr><th>Time</th><th>Question</th><th class="num">Best match</th><th class="num">Search</th><th class="num">First word</th><th class="num">Total</th><th class="num">Words</th><th class="num">Cited</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section class="page" data-page="settings" hidden>
+      <div class="panel settings">
+        <h2>Retrieval</h2>
+        <label class="field"><span>Passages sent per question</span><input type="range" id="setTopK" min="3" max="12" step="1"><output id="outTopK"></output></label>
+        <p class="hint">More passages give more context but cost more and can add noise.</p>
+        <h2>Chunking</h2>
+        <label class="field"><span>Chunk size, characters</span><input type="range" id="setSize" min="400" max="1600" step="100"><output id="outSize"></output></label>
+        <label class="field"><span>Overlap, characters</span><input type="range" id="setOverlap" min="0" max="300" step="50"><output id="outOverlap"></output></label>
+        <p class="hint" id="reindexHint">Changing chunk settings requires re-indexing your documents.</p>
+        <div class="row"><button class="btn" id="saveSettings">Save settings</button><button class="btn ghost" id="reindex" hidden>Re-index documents</button></div>
+      </div>
+      <div class="panel settings">
+        <h2>Model</h2>
+        <dl class="kv" id="modelInfo"></dl>
+      </div>
+      <div class="panel settings">
+        <h2>Data</h2>
+        <p class="hint">Everything is stored in this browser only.</p>
+        <div class="row"><button class="btn ghost danger" id="deleteAll">Delete all documents</button></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- Document drawer -->
+<div class="drawer" id="drawer" hidden>
+  <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+    <div class="drawer-head"><div><h2 id="drawerTitle"></h2><p class="hint" id="drawerMeta"></p></div><button class="icon-btn" id="drawerClose">Close</button></div>
+    <p class="hint">Chunk map. Each shaded block is one chunk. Overlapping text is shown once.</p>
+    <div class="chunkmap" id="chunkMap"></div>
+  </div>
+</div>
+
+<!-- Paste dialog -->
+<dialog id="pasteDlg">
+  <form method="dialog" class="paste">
+    <h2>Paste text</h2>
+    <input id="pasteName" placeholder="Document name">
+    <textarea id="pasteText" placeholder="Paste your text"></textarea>
+    <div class="row"><button class="btn ghost" value="cancel">Cancel</button><button class="btn" id="pasteAdd" value="add">Add document</button></div>
+  </form>
+</dialog>
+
+<div class="dropzone-overlay" id="overlay" hidden><div>Drop files to add them</div></div>
+<div class="toast" id="toast" role="status" hidden></div>
+<input type="file" id="fileInput" multiple accept=".pdf,.txt,.md,.markdown,.csv,.json,.html,.htm,.log,.xml,.yaml,.yml" hidden>
+<script type="module" src="app.js"></script>
+</body>
+</html>
