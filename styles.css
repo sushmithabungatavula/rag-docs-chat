@@ -174,14 +174,14 @@ h1,h2{margin:0}
 .metrics{font-size:12px;color:var(--muted);margin-top:8px;font-variant-numeric:tabular-nums}
 .cite{font:700 11.5px/1 var(--sans);background:var(--mark);color:var(--mark-ink);border:0;border-radius:6px;padding:3px 6px;margin:0 1px;vertical-align:2px;transition:background .15s,color .15s}
 .cite:hover{background:var(--accent);color:var(--accent-ink)}
-details.hits{margin-top:12px;font-size:13px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--bg);overflow:hidden}
+details.hits{margin-top:12px;font-size:13px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--bg)}
 details.hits summary{padding:9px 14px;color:var(--muted);cursor:pointer;font-weight:600}
-.hit{display:grid;grid-template-columns:28px 1fr;gap:4px 10px;padding:10px 14px;border:0;border-top:1px solid var(--line);text-align:left;background:none;width:100%}
+.hit{display:grid;grid-template-columns:28px minmax(0,1fr);gap:4px 10px;padding:10px 14px;border:0;border-top:1px solid var(--line);text-align:left;background:none;width:100%}
 .hit:hover{background:var(--soft)}
 .hit .n{font-weight:700;color:var(--accent-strong)}
 .hit .top{display:flex;gap:8px;align-items:center;min-width:0}
 .hit .doc{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
-.hit .score{color:var(--muted);font-variant-numeric:tabular-nums}
+.hit .score{flex:none;color:var(--muted);font-variant-numeric:tabular-nums}
 .bar{grid-column:2;height:5px;background:var(--soft-2);border-radius:3px;overflow:hidden}
 .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--p1),var(--p3))}
 .hit .scores{grid-column:2;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
