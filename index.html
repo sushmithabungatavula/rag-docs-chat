@@ -17,9 +17,10 @@
 <div class="shell">
   <nav class="side" aria-label="Main">
     <div class="brand"><span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 4h10l4 4v12H5z"/><path d="M9 12h6M9 16h4"/></svg></span><span class="brand-text"><b>Chat With Your Docs</b><small>RAG App</small></span></div>
-    <a href="#overview" data-nav="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="7" height="9" rx="1"/><rect x="13" y="4" width="7" height="5" rx="1"/><rect x="13" y="11" width="7" height="9" rx="1"/><rect x="4" y="15" width="7" height="5" rx="1"/></svg>Overview</a>
     <a href="#chat" data-nav="chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>Chat</a>
     <a href="#documents" data-nav="documents"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>Documents<span class="count" id="navDocCount"></span></a>
+    <div class="nav-label">Under the hood</div>
+    <a href="#insights" data-nav="insights"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="7" height="9" rx="1"/><rect x="13" y="4" width="7" height="5" rx="1"/><rect x="13" y="11" width="7" height="9" rx="1"/><rect x="4" y="15" width="7" height="5" rx="1"/></svg>How it works</a>
     <a href="#retrieval" data-nav="retrieval"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>Retrieval lab</a>
     <a href="#activity" data-nav="activity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>Activity</a>
     <a href="#settings" data-nav="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Settings</a>
@@ -31,22 +32,23 @@
 
   <div class="main">
     <header class="topbar">
-      <h1 id="pageTitle">Overview</h1>
+      <h1 id="pageTitle">Chat</h1>
       <div class="top-actions">
         <button class="btn ghost" id="pasteOpen">Paste text</button>
         <button class="btn" id="uploadBtn">Add documents</button>
       </div>
     </header>
 
-    <!-- Overview -->
-    <section class="page" data-page="overview">
+    <!-- How it works -->
+    <section class="page" data-page="insights" hidden>
+      <p class="lead">What happens between adding a file and getting an answer. Everything up to the answer runs in your browser; only the matching passages are sent to Claude.</p>
       <div class="panel pipe-panel">
-        <div class="panel-head"><h2>Pipeline</h2><span class="hint" id="pipeHint">Live status of each step</span></div>
+        <div class="panel-head"><h2>The five steps</h2><span class="hint" id="pipeHint">Updates live as you use the app</span></div>
         <ol class="pipe">
           <li class="step idle" id="s-upload"><span class="node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5M5 15v4h14v-4"/></svg></span><b>Upload</b><small>No files yet</small></li>
-          <li class="step idle" id="s-chunk"><span class="node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 8l12 10M8 16L20 6"/></svg></span><b>Chunk</b><small>Waiting</small></li>
+          <li class="step idle" id="s-chunk"><span class="node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 8l12 10M8 16L20 6"/></svg></span><b>Split</b><small>Waiting</small></li>
           <li class="step idle" id="s-embed"><span class="node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1"/></svg></span><b>Embed</b><small>Waiting</small></li>
-          <li class="step idle" id="s-retrieve"><span class="node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg></span><b>Retrieve</b><small>Ask a question</small></li>
+          <li class="step idle" id="s-retrieve"><span class="node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg></span><b>Search</b><small>Ask a question</small></li>
           <li class="step idle" id="s-answer"><span class="node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l-5-5 5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/></svg></span><b>Answer</b><small>Ask a question</small></li>
         </ol>
       </div>
@@ -55,29 +57,43 @@
 
       <div class="empty-state panel" id="overviewEmpty">
         <h2>Add your first document</h2>
-        <p>Drop a PDF or text file anywhere on this page. The app splits it into chunks, embeds each one in your browser, and makes it searchable.</p>
+        <p>Add a PDF or text file to see each step run. The app splits it into short passages and indexes them in your browser, so each question can be matched to the right text.</p>
         <button class="btn" data-action="upload">Add documents</button>
       </div>
 
       <div class="grid-2" id="overviewCharts">
-        <div class="panel"><div class="panel-head"><h2>Answer time</h2><span class="hint">Last 20 questions, seconds</span></div><div id="chartLatency"></div></div>
-        <div class="panel"><div class="panel-head"><h2>Retrieval quality</h2><span class="hint">Best semantic match per question, 0 to 1</span></div><div id="chartSim"></div></div>
-        <div class="panel"><div class="panel-head"><h2>Chunks per document</h2><a class="hint link" href="#documents">All documents</a></div><div id="chartDocs"></div></div>
+        <div class="panel"><div class="panel-head"><h2>Answer time</h2><span class="hint">Seconds, last 20 answers</span></div><div id="chartLatency"></div><p class="hint chart-note" id="latencyNote"></p></div>
+        <div class="panel"><div class="panel-head"><h2>Match quality</h2><span class="hint">Last 20 questions</span></div><div id="chartSim"></div><p class="hint chart-note">How closely the best passage matched each question. Bars above the dashed line (0.30) are usually good matches.</p></div>
+        <div class="panel"><div class="panel-head"><h2>Passages per document</h2><a class="hint link" href="#documents">All documents</a></div><div id="chartDocs"></div></div>
         <div class="panel"><div class="panel-head"><h2>Recent questions</h2><a class="hint link" href="#activity">Full log</a></div><div id="recentList"></div></div>
       </div>
     </section>
 
     <!-- Chat -->
     <section class="page chat-page" data-page="chat" hidden>
-      <div class="chat-col">
+      <div class="hero" id="hero" hidden>
+        <div class="hero-inner">
+          <span class="hero-logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 4h10l4 4v12H5z"/><path d="M9 12h6M9 16h4"/></svg></span>
+          <h2>Chat With Your Docs <span class="hero-badge">RAG App</span></h2>
+          <p class="hero-tag">Upload a document and ask it questions — answers grounded in the actual text, with citations back to the source.</p>
+          <div class="hero-actions">
+            <button class="btn btn-lg" data-action="upload">Upload documents</button>
+            <button class="btn ghost btn-lg" data-action="paste">Paste text</button>
+          </div>
+          <p class="hint">PDF, TXT, Markdown, CSV or HTML · or drop files anywhere on this page</p>
+          <ul class="hero-points">
+            <li><b>Grounded</b><span>Answers come only from your files, never outside knowledge.</span></li>
+            <li><b>Cited</b><span>Every claim links to the exact passage it came from.</span></li>
+            <li><b>Private</b><span>Files stay in your browser. Only matching passages are sent to the AI.</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="chat-col" id="chatCol">
+        <div class="doc-strip" id="docStrip" hidden></div>
         <div class="thread" id="thread"><div class="thread-inner" id="threadInner">
           <div class="intro" id="intro">
             <h2>Ask a question about your files.</h2>
             <p>Answers use only your documents and cite each passage. Click a citation to read the source.</p>
-            <div class="intro-actions" id="introActions">
-              <button class="btn" data-action="upload">Add documents</button>
-              <span class="hint">PDF, TXT, Markdown, CSV or HTML. You can also drop files anywhere on this page.</span>
-            </div>
           </div>
         </div></div>
         <div class="composer">

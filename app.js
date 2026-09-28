@@ -22,6 +22,7 @@ let extractor = null, extractorLoading = null, ctl = null;
 const wait = ms => new Promise(r => setTimeout(r, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : ms));
 const words = t => (t.match(/\S+/g) || []).length;
 const fmtS = ms => ms == null ? "" : (ms / 1000).toFixed(1) + " s";
+const matchLabel = v => v >= 0.5 ? "Strong" : v >= 0.3 ? "Fair" : "Weak";
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 // ================= Storage (IndexedDB)
@@ -59,7 +60,24 @@ function toast(msg) {
 function setModel(kind, text) { $("modelDot").className = "dot " + kind; $("modelState").textContent = text; renderModelInfo(); }
 function step(id, s, text) {
   const el = $("s-" + id); el.className = "step " + s; if (text !== undefined) el.querySelector("small").textContent = text;
-  if (s === "active" && text && id !== "retrieve" && id !== "answer") $("chatStatus").textContent = text + "…";
+  const u = upCard?.querySelector(`[data-step="${id}"]`);
+  if (u && UPLOAD_STEPS.includes(id)) { u.className = "uc " + s; if (text !== undefined) u.querySelector("small").textContent = text; }
+}
+
+// Progress card shown in the chat while documents are added
+const UPLOAD_STEPS = ["upload", "chunk", "embed"];
+let upCard = null;
+function startUploadCard(label) {
+  const steps = [["upload", "Upload"], ["chunk", "Split"], ["embed", "Embed"], ["retrieve", "Search"], ["answer", "Answer"]];
+  upCard = true; renderChatMode();
+  upCard = addMsg("bot upload-card", `<div class="uc-title">Adding ${esc(label)}</div><ol class="uc-steps">${steps.map(([id, name], i) =>
+    `<li class="uc idle" data-step="${id}"><span class="uc-n">${i + 1}</span><b>${name}</b><small>${i < 3 ? "Waiting" : "When you ask"}</small></li>`).join("")}</ol>`);
+}
+function endUploadCard(html) {
+  if (!upCard) return;
+  if (html) { upCard.className = "msg bot upload-card done"; upCard.innerHTML = html; } else upCard.remove();
+  upCard = null;
+  renderChatMode();
 }
 
 // ================= Embedding
@@ -102,10 +120,11 @@ async function indexDocs(newDocs, { replace = false } = {}) {
   try {
     const base = replace ? [] : state.chunks;
     const docsAfter = replace ? newDocs : [...state.docs, ...newDocs];
-    step("upload", "done", `${docsAfter.length} file${docsAfter.length === 1 ? "" : "s"}, ${docsAfter.reduce((s, d) => s + words(d.text), 0).toLocaleString()} words`);
+    step("upload", "done", `${newDocs.reduce((s, d) => s + words(d.text), 0).toLocaleString()} words read`);
+    step("embed", "idle", "Waiting"); step("retrieve", "idle", "Ask a question"); step("answer", "idle", "Ask a question");
     step("chunk", "active", "Splitting text"); await wait(250);
     const fresh = newDocs.flatMap(d => chunkText(d, chunkOpts()));
-    step("chunk", "done", `${base.length + fresh.length} chunks`);
+    step("chunk", "done", `${fresh.length} passage${fresh.length === 1 ? "" : "s"}`);
     step("embed", "active", "Preparing");
     const vecs = await embed(fresh.map(c => c.text), (n, t) => step("embed", "active", `Embedding ${n} of ${t}`));
     fresh.forEach((c, i) => (c.vec = vecs[i]));
@@ -115,12 +134,13 @@ async function indexDocs(newDocs, { replace = false } = {}) {
     state.bm25 = buildBM25(state.chunks);
     await saveLibrary();
     toast(replace ? "Documents re-indexed." : `Added ${newDocs.length} document${newDocs.length === 1 ? "" : "s"}.`);
+    endUploadCard(`<span class="uc-ok" aria-hidden="true">✓</span><span>Added <b>${esc(newDocs.map(d => d.name).join(", "))}</b> · ${fresh.length} passage${fresh.length === 1 ? "" : "s"}. Ask a question below.</span>`);
   } catch (e) {
     console.error(e);
+    endUploadCard(`<span class="err">Could not add ${esc(newDocs.map(d => d.name).join(", "))}. The embedding model did not load. Check your connection and try again.</span>`);
     toast("Indexing failed. The embedding model could not load. Check your connection and try again.");
   } finally {
     setBusy(false);
-    $("chatStatus").textContent = "";
     renderAll();
   }
 }
@@ -149,9 +169,13 @@ function newDoc(name, text, type, size) {
   text = text.replace(/\r\n/g, "\n").replace(/[ \t]+\n/g, "\n").trim();
   return text ? { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, text, type, size, addedAt: Date.now() } : null;
 }
+const isDuplicate = (d, pending = []) => [...state.docs, ...pending].some(x => x.text === d.text);
 async function addFiles(list) {
   if (!list.length) return;
   const added = [], skipped = [];
+  startUploadCard(list.length === 1 ? list[0].name : `${list.length} files`);
+  ["chunk", "embed"].forEach(id => step(id, "idle", "Waiting"));
+  ["retrieve", "answer"].forEach(id => step(id, "idle", "Ask a question"));
   for (const f of list) {
     const ext = (f.name.split(".").pop() || "").toLowerCase();
     const isPdf = ext === "pdf";
@@ -162,12 +186,13 @@ async function addFiles(list) {
       let t = isPdf ? await pdfToText(f) : await f.text();
       if (ext === "html" || ext === "htm") t = htmlToText(t);
       const d = newDoc(f.name, t, ext.toUpperCase(), f.size);
+      if (d && isDuplicate(d, added)) { skipped.push(f.name + " (already added)"); continue; }
       if (d) added.push(d); else skipped.push(f.name + (isPdf ? " (no text, may be a scan)" : " (empty)"));
     } catch (e) { skipped.push(f.name + (e.message === "nopdf" ? " (PDF reader failed to load)" : " (could not read)")); }
   }
   if (skipped.length) toast("Skipped: " + skipped.join(", "));
-  if (added.length) { if (!["#documents", "#overview", "#chat"].includes(location.hash)) location.hash = "#overview"; await indexDocs(added); }
-  else renderPipeline();
+  if (added.length) { if (!["#documents", "#insights", "#chat"].includes(location.hash)) location.hash = "#chat"; await indexDocs(added); }
+  else { endUploadCard(null); renderPipeline(); }
 }
 async function removeDoc(id) {
   const d = state.docs.find(x => x.id === id);
@@ -270,7 +295,11 @@ async function ask() {
       method: "POST", headers: { "content-type": "application/json" }, signal: ctl.signal,
       body: JSON.stringify({ question: q, passages: hits.map(h => ({ name: h.chunk.docName, text: h.chunk.text })), history: state.turns.slice(-6) }),
     });
-    if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err.error || `Request failed (${r.status}).`); }
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      const missingKey = /ANTHROPIC_API_KEY/.test(err.error || "");
+      throw new Error(missingKey ? "Answers are turned off: the site owner hasn't added an Anthropic API key yet." : err.error || `Couldn't reach the answer service (error ${r.status}).`);
+    }
     const reader = r.body.getReader(), dec = new TextDecoder();
     for (;;) {
       const { value, done } = await reader.read();
@@ -298,7 +327,8 @@ async function ask() {
     finishLog(log, { totalMs: performance.now() - tStart });
     const m = document.createElement("div");
     m.className = "metrics";
-    m.textContent = `Search ${Math.round(log.searchMs || 0)} ms. First word ${fmtS(log.firstTokenMs) || "none"}. Total ${fmtS(log.totalMs)}.`;
+    const found = `Found ${log.passages} passage${log.passages === 1 ? "" : "s"} in ${Math.round(log.searchMs || 0)} ms`;
+    m.textContent = log.status === "ok" ? `${found} · first word after ${fmtS(log.firstTokenMs)} · done in ${fmtS(log.totalMs)}` : `${found} · no answer`;
     bot.insertBefore(m, det);
   }
 }
@@ -317,14 +347,14 @@ function renderPipeline() {
     step("upload", "idle", "No files yet"); step("chunk", "idle", "Waiting"); step("embed", "idle", "Waiting");
     step("retrieve", "idle", "Ask a question"); step("answer", "idle", "Ask a question"); return;
   }
-  const avg = Math.round(state.chunks.reduce((s, c) => s + c.text.length, 0) / (state.chunks.length || 1));
-  step("upload", "done", `${n} file${n === 1 ? "" : "s"}, ${state.docs.reduce((s, d) => s + words(d.text), 0).toLocaleString()} words`);
-  step("chunk", "done", `${state.chunks.length} chunks, ~${avg} chars each`);
-  step("embed", "done", `${state.chunks.length} vectors, ${state.chunks[0]?.vec.length || 384} dimensions`);
+  step("upload", "done", `${n} file${n === 1 ? "" : "s"}`);
+  step("chunk", "done", `${state.chunks.length} passage${state.chunks.length === 1 ? "" : "s"}`);
+  step("embed", "done", "Indexed by meaning");
   const last = state.activity.at(-1);
-  if (last && last.topScore != null) step("retrieve", "done", `Last: best match ${last.topScore.toFixed(2)}`);
+  if (last && last.topScore != null) step("retrieve", "done", `Last: ${matchLabel(last.topScore).toLowerCase()} match`);
   else step("retrieve", "idle", "Ask a question");
-  if (last && last.status === "ok") step("answer", "done", `Last: ${fmtS(last.totalMs)}, ${last.cited ?? 0} cited`);
+  if (last && last.status === "ok") step("answer", "done", `Last: ${fmtS(last.totalMs)}`);
+  else if (last) step("answer", "idle", last.status === "stopped" ? "Last one stopped" : "Last one failed");
   else step("answer", "idle", "Ask a question");
 }
 function stat(v, l, s = "") { return `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div>${s ? `<div class="s">${s}</div>` : ""}</div>`; }
@@ -335,33 +365,51 @@ function renderOverview() {
   const avgTotal = avg(ok.map(a => a.totalMs));
   const avgSim = avg(state.activity.filter(a => a.topScore != null).map(a => a.topScore));
   const totalWords = state.docs.reduce((s, d) => s + words(d.text), 0);
+  const failed = state.activity.length - ok.length;
   $("stats").innerHTML =
     stat(state.docs.length, "Documents", `${totalWords.toLocaleString()} words`) +
-    stat(state.chunks.length, "Chunks", `${state.settings.chunkSize} chars, ${state.settings.overlap} overlap`) +
-    stat(state.chunks.length ? state.chunks[0].vec.length : 384, "Vector dimensions", "all-MiniLM-L6-v2") +
-    stat(state.activity.length, "Questions asked", `${state.activity.length - ok.length} failed or stopped`) +
-    stat(avgTotal == null ? "None" : fmtS(avgTotal), "Avg answer time", ok.length ? `First word ${fmtS(avg(ok.map(a => a.firstTokenMs || 0)))}` : "") +
-    stat(avgSim == null ? "None" : avgSim.toFixed(2), "Avg best match", "Cosine similarity");
+    stat(state.chunks.length, "Passages", "Searchable pieces of text") +
+    stat(ok.length, "Questions answered", state.activity.length ? `${state.activity.length} asked${failed ? `, ${failed} failed` : ""}` : "None asked yet") +
+    stat(avgTotal == null ? "–" : fmtS(avgTotal), "Avg answer time", ok.length ? `First word after ${fmtS(avg(ok.map(a => a.firstTokenMs || 0)))}` : "No answers yet") +
+    stat(avgSim == null ? "–" : matchLabel(avgSim), "Match quality", avgSim == null ? "No questions yet" : `Avg similarity ${avgSim.toFixed(2)}`);
 
   const has = state.docs.length > 0;
   $("overviewEmpty").hidden = has;
   $("overviewCharts").hidden = !has;
   $("navDocCount").textContent = state.docs.length || "";
-  if ($("introActions")) $("introActions").hidden = has;
+  renderDocStrip();
+  renderChatMode();
 
   const last = state.activity.slice(-20);
-  $("chartLatency").innerHTML = barChart(last.map(a => ({ v: (a.totalMs || 0) / 1000, fail: a.status !== "ok", t: `${a.question}\n${fmtS(a.totalMs)}` })), { unit: " s", digits: 1 });
-  $("chartSim").innerHTML = barChart(last.filter(a => a.topScore != null).map(a => ({ v: a.topScore, t: `${a.question}\nBest match ${a.topScore.toFixed(3)}` })), { max: 1, ref: 0.3, digits: 2 });
+  const answered = ok.slice(-20);
+  $("chartLatency").innerHTML = barChart(answered.map(a => ({ v: (a.totalMs || 0) / 1000, t: `${a.question}\n${fmtS(a.totalMs)}` })), { unit: " s", digits: 1, empty: failed ? "No answers yet. Questions so far failed before an answer arrived." : "No answers yet" });
+  $("latencyNote").textContent = failed ? `${failed} failed or stopped question${failed === 1 ? " is" : "s are"} not counted. See Activity for details.` : "";
+  $("chartSim").innerHTML = barChart(last.filter(a => a.topScore != null).map(a => ({ v: a.topScore, t: `${a.question}\nBest match ${a.topScore.toFixed(2)} (${matchLabel(a.topScore).toLowerCase()})` })), { max: 1, ref: 0.3, digits: 2 });
   const per = state.docs.map(d => ({ name: d.name, n: state.chunks.filter(c => c.docId === d.id).length })).sort((a, b) => b.n - a.n).slice(0, 8);
   const maxN = Math.max(1, ...per.map(p => p.n));
   $("chartDocs").innerHTML = per.length ? `<div class="hbars">${per.map(p => `<div class="hbar"><span class="name" title="${esc(p.name)}">${esc(p.name)}</span><span class="num">${p.n}</span><span class="track"><i style="width:${p.n / maxN * 100}%"></i></span></div>`).join("")}</div>` : '<div class="none">No documents</div>';
   const recent = state.activity.slice(-6).reverse();
-  $("recentList").innerHTML = recent.length ? `<ul class="recent">${recent.map(a => `<li><span class="q" title="${esc(a.question)}">${esc(a.question)}</span><span class="m">${a.status === "ok" ? fmtS(a.totalMs) : esc(a.status)}</span></li>`).join("")}</ul>` : '<div class="none">No questions yet. Go to Chat to ask one.</div>';
+  $("recentList").innerHTML = recent.length ? `<ul class="recent">${recent.map(a => `<li><span class="q" title="${esc(a.question)}">${esc(a.question)}</span>${a.status === "ok" ? `<span class="m">${fmtS(a.totalMs)}</span>` : `<span class="tag fail">${esc(a.status[0].toUpperCase() + a.status.slice(1))}</span>`}</li>`).join("")}</ul>` : '<div class="none">No questions yet. Go to Chat to ask one.</div>';
 }
-function barChart(items, { max, ref, unit = "", digits = 1 } = {}) {
-  if (!items.length) return '<div class="none">No questions yet</div>';
+function barChart(items, { max, ref, unit = "", digits = 1, empty = "No questions yet" } = {}) {
+  if (!items.length) return `<div class="none">${esc(empty)}</div>`;
   const top = max ?? Math.max(...items.map(i => i.v), 0.1);
   return `<div class="bars"><span class="max">${top.toFixed(digits)}${unit}</span>${ref != null ? `<span class="ref" style="bottom:${ref / top * 100}%" title="Reference ${ref}"></span>` : ""}${items.map(i => `<span class="b${i.fail ? " fail" : ""}" style="height:${Math.max(2, i.v / top * 100)}%" title="${esc(i.t)}"></span>`).join("")}</div><div class="axis"><span>Older</span><span>Newer</span></div>`;
+}
+
+// Welcome screen until the first document is added (or while one is being added)
+function renderChatMode() {
+  const welcome = !state.docs.length && !upCard;
+  $("hero").hidden = !welcome;
+  $("chatCol").hidden = welcome;
+  document.body.classList.toggle("welcome", welcome && !document.querySelector('[data-page="chat"]').hidden);
+}
+function renderDocStrip() {
+  const el = $("docStrip");
+  el.hidden = !state.docs.length;
+  el.innerHTML = `<span class="strip-label">Asking about</span>` + state.docs.map(d =>
+    `<span class="chip" title="${esc(d.name)}"><span class="chip-name">${esc(d.name)}</span><button class="chip-x" data-remove="${d.id}" aria-label="Remove ${esc(d.name)}">×</button></span>`).join("") +
+    `<button class="chip add" data-action="upload">+ Add</button>`;
 }
 
 // ================= Rendering: documents
@@ -471,15 +519,17 @@ function renderModelInfo() {
 function renderAll() { renderOverview(); renderDocs(); renderActivity(); renderSettings(); }
 
 // ================= Routing
-const TITLES = { overview: "Overview", chat: "Chat", documents: "Documents", retrieval: "Retrieval lab", activity: "Activity", settings: "Settings" };
+const TITLES = { chat: "Chat", insights: "How it works", documents: "Documents", retrieval: "Retrieval lab", activity: "Activity", settings: "Settings" };
 function route() {
-  const page = (location.hash.slice(1) || "overview");
-  const name = TITLES[page] ? page : "overview";
+  let page = location.hash.slice(1) || "chat";
+  if (page === "overview") page = "insights"; // old links
+  const name = TITLES[page] ? page : "chat";
   $$(".page").forEach(p => (p.hidden = p.dataset.page !== name));
   $$("[data-nav]").forEach(a => a.dataset.nav === name ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
   $("pageTitle").textContent = TITLES[name];
   document.title = `${TITLES[name]} · Chat With Your Docs — RAG App`;
-  if (name === "chat") $("q").focus();
+  renderChatMode();
+  if (name === "chat" && !$("chatCol").hidden) $("q").focus();
 }
 
 // ================= Wiring
@@ -504,15 +554,19 @@ window.addEventListener("dragover", e => e.preventDefault());
 window.addEventListener("drop", e => { e.preventDefault(); dragDepth = 0; $("overlay").hidden = true; addFiles([...(e.dataTransfer?.files || [])]); });
 
 $("pasteOpen").onclick = () => $("pasteDlg").showModal();
+document.addEventListener("click", e => { if (e.target.closest("[data-action=paste]")) $("pasteDlg").showModal(); });
 $("pasteDlg").addEventListener("close", async () => {
   if ($("pasteDlg").returnValue !== "add") return;
   const name = $("pasteName").value.trim() || "Pasted text " + (state.docs.length + 1);
   const d = newDoc(name, $("pasteText").value, "TXT", $("pasteText").value.length);
   $("pasteName").value = ""; $("pasteText").value = "";
   if (!d) { toast("Paste some text first."); return; }
+  if (isDuplicate(d)) { toast("That text is already added."); return; }
+  startUploadCard(name);
   await indexDocs([d]);
 });
 
+$("docStrip").addEventListener("click", e => { const r = e.target.closest("[data-remove]"); if (r) removeDoc(r.dataset.remove); });
 $("docTable").addEventListener("click", e => {
   const o = e.target.closest("[data-open]"); if (o) openDrawer(o.dataset.open);
   const r = e.target.closest("[data-remove]"); if (r) removeDoc(r.dataset.remove);
@@ -532,7 +586,7 @@ $("saveSettings").onclick = async () => {
   state.settings = { topK: +$("setTopK").value, chunkSize: +$("setSize").value, overlap: +$("setOverlap").value };
   await saveSettings(); renderAll(); toast("Settings saved.");
 };
-$("reindex").onclick = async () => { location.hash = "#overview"; await indexDocs(state.docs, { replace: true }); };
+$("reindex").onclick = async () => { location.hash = "#insights"; await indexDocs(state.docs, { replace: true }); };
 $("deleteAll").onclick = async () => {
   if (!state.docs.length || !confirm("Delete all documents and their vectors from this browser?")) return;
   state.docs = []; state.chunks = []; state.bm25 = null; state.indexedWith = null;
@@ -550,6 +604,13 @@ window.addEventListener("hashchange", route);
     state.docs = lib.docs;
     state.chunks = lib.chunks.map(c => ({ ...c, vec: Float32Array.from(c.vec) }));
     state.indexedWith = lib.indexedWith || { size: 900, overlap: 150 };
+    const seen = new Set(), dupes = new Set();
+    state.docs = state.docs.filter(d => seen.has(d.text) ? (dupes.add(d.id), false) : seen.add(d.text));
+    if (dupes.size) {
+      state.chunks = state.chunks.filter(c => !dupes.has(c.docId));
+      await saveLibrary();
+      toast(`Removed ${dupes.size} duplicate document${dupes.size === 1 ? "" : "s"}.`);
+    }
     state.bm25 = buildBM25(state.chunks);
   }
   renderAll();
