@@ -2,7 +2,7 @@
 
 Upload PDFs or text files and ask questions. Answers come only from your documents and cite the exact passages they used. Click a citation to see the source text highlighted.
 
-Live demo: https://YOUR-APP.vercel.app
+Live demo: https://rag-docs-chat-wine.vercel.app
 
 ## Dashboard
 
