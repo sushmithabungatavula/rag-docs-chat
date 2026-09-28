@@ -57,7 +57,10 @@ function toast(msg) {
   clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 4500);
 }
 function setModel(kind, text) { $("modelDot").className = "dot " + kind; $("modelState").textContent = text; renderModelInfo(); }
-function step(id, s, text) { const el = $("s-" + id); el.className = "step " + s; if (text !== undefined) el.querySelector("small").textContent = text; }
+function step(id, s, text) {
+  const el = $("s-" + id); el.className = "step " + s; if (text !== undefined) el.querySelector("small").textContent = text;
+  if (s === "active" && text && id !== "retrieve" && id !== "answer") $("chatStatus").textContent = text + "…";
+}
 
 // ================= Embedding
 async function getExtractor() {
@@ -117,10 +120,11 @@ async function indexDocs(newDocs, { replace = false } = {}) {
     toast("Indexing failed. The embedding model could not load. Check your connection and try again.");
   } finally {
     setBusy(false);
+    $("chatStatus").textContent = "";
     renderAll();
   }
 }
-function setBusy(b) { $("send").disabled = b; $("reindex").disabled = b; $("uploadBtn").disabled = b; }
+function setBusy(b) { $("send").disabled = b; $("reindex").disabled = b; $("uploadBtn").disabled = b; $("attachBtn").disabled = b; }
 
 // ================= Upload
 function htmlToText(h) {
@@ -162,7 +166,7 @@ async function addFiles(list) {
     } catch (e) { skipped.push(f.name + (e.message === "nopdf" ? " (PDF reader failed to load)" : " (could not read)")); }
   }
   if (skipped.length) toast("Skipped: " + skipped.join(", "));
-  if (added.length) { if (location.hash !== "#documents" && location.hash !== "#overview") location.hash = "#overview"; await indexDocs(added); }
+  if (added.length) { if (!["#documents", "#overview", "#chat"].includes(location.hash)) location.hash = "#overview"; await indexDocs(added); }
   else renderPipeline();
 }
 async function removeDoc(id) {
@@ -343,6 +347,7 @@ function renderOverview() {
   $("overviewEmpty").hidden = has;
   $("overviewCharts").hidden = !has;
   $("navDocCount").textContent = state.docs.length || "";
+  if ($("introActions")) $("introActions").hidden = has;
 
   const last = state.activity.slice(-20);
   $("chartLatency").innerHTML = barChart(last.map(a => ({ v: (a.totalMs || 0) / 1000, fail: a.status !== "ok", t: `${a.question}\n${fmtS(a.totalMs)}` })), { unit: " s", digits: 1 });

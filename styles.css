@@ -163,6 +163,8 @@ h1,h2{margin:0}
 .thread-inner{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
 .intro h2{font:700 26px/1.25 var(--sans);letter-spacing:-.02em;margin:0 0 8px}
 .intro p{margin:0;color:var(--muted);max-width:60ch}
+.intro-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:18px}
+.intro-actions .hint{max-width:40ch}
 .msg.user{align-self:flex-end;background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;padding:11px 16px;border-radius:18px 18px 4px 18px;max-width:80%;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 4px 14px color-mix(in srgb,var(--p1) 25%,transparent)}
 .msg.bot{max-width:72ch;overflow-wrap:anywhere;background:var(--surface);border:1px solid var(--line);border-radius:18px 18px 18px 4px;padding:16px 20px;box-shadow:var(--shadow-sm)}
 .answer{font:16.5px/1.7 var(--read)}
@@ -176,7 +178,7 @@ h1,h2{margin:0}
 .cite:hover{background:var(--accent);color:var(--accent-ink)}
 details.hits{margin-top:12px;font-size:13px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--bg)}
 details.hits summary{padding:9px 14px;color:var(--muted);cursor:pointer;font-weight:600}
-.hit{display:grid;grid-template-columns:28px minmax(0,1fr);gap:4px 10px;padding:10px 14px;border:0;border-top:1px solid var(--line);text-align:left;background:none;width:100%}
+.hit{box-sizing:border-box;display:grid;grid-template-columns:28px minmax(0,1fr);gap:4px 10px;padding:10px 14px;border:0;border-top:1px solid var(--line);text-align:left;background:none;width:100%}
 .hit:hover{background:var(--soft)}
 .hit .n{font-weight:700;color:var(--accent-strong)}
 .hit .top{display:flex;gap:8px;align-items:center;min-width:0}
@@ -191,6 +193,10 @@ details.hits summary{padding:9px 14px;color:var(--muted);cursor:pointer;font-wei
 .composer-inner:focus-within{border-color:var(--p2);box-shadow:0 0 0 4px var(--ring)}
 .composer textarea{flex:1;resize:none;border:0;border-radius:10px;padding:10px 12px;background:transparent;max-height:180px;min-height:44px;outline:none}
 .composer .btn{min-height:40px;border-radius:11px}
+.attach{flex:none;width:40px;height:40px;border:0;border-radius:11px;background:none;color:var(--muted);display:grid;place-items:center;transition:background .15s,color .15s}
+.attach svg{width:20px;height:20px}
+.attach:hover{background:var(--soft);color:var(--accent-strong)}
+.attach:disabled{opacity:.4;cursor:default}
 .status{max-width:760px;margin:8px auto 0;color:var(--muted);font-size:12px;min-height:1em}
 .source{width:390px;flex:none;border-left:1px solid var(--line);background:var(--surface);padding:20px 22px;overflow:auto}
 .source-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:12px}

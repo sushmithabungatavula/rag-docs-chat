@@ -74,10 +74,15 @@
           <div class="intro" id="intro">
             <h2>Ask a question about your files.</h2>
             <p>Answers use only your documents and cite each passage. Click a citation to read the source.</p>
+            <div class="intro-actions" id="introActions">
+              <button class="btn" data-action="upload">Add documents</button>
+              <span class="hint">PDF, TXT, Markdown, CSV or HTML. You can also drop files anywhere on this page.</span>
+            </div>
           </div>
         </div></div>
         <div class="composer">
           <div class="composer-inner">
+            <button class="attach" id="attachBtn" data-action="upload" aria-label="Add documents" title="Add documents"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></svg></button>
             <textarea id="q" rows="1" placeholder="Ask about your documents"></textarea>
             <button class="btn" id="send">Ask</button>
             <button class="btn ghost" id="stop" hidden>Stop</button>
