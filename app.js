@@ -1,5 +1,5 @@
 const TRANSFORMERS_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1";
-import { chunkText, buildBM25, hybridSearch, CONTEXT_BUDGET } from "./rag.js";
+import { chunkText, buildBM25, hybridSearch, searchQuery, CONTEXT_BUDGET } from "./rag.js";
 
 const MODEL_ID = "Xenova/all-MiniLM-L6-v2"; // 384-dimension sentence embeddings, runs in the browser
 const DB_NAME = "docs-chat", STORE = "kv";
@@ -14,6 +14,7 @@ const state = {
   settings: { ...DEFAULTS },
   activity: [],    // one row per question
   turns: [],
+  lastQuestion: "",
   cites: {},
   bm25: null,
   api: null,
@@ -261,9 +262,10 @@ async function ask() {
   const tStart = performance.now();
 
   step("retrieve", "active", "Embedding question"); step("answer", "idle", "Waiting");
-  const prev = state.turns.length ? state.turns[state.turns.length - 2].content.slice(0, 200) : "";
+  const query = searchQuery(q, state.lastQuestion);
+  state.lastQuestion = q;
   let res;
-  try { res = await search((q + " " + prev).trim()); }
+  try { res = await search(query); }
   catch {
     ansEl.innerHTML = '<div class="err">Search failed. The embedding model could not load.</div>';
     step("retrieve", "idle", "Failed");
@@ -328,7 +330,7 @@ async function ask() {
     const m = document.createElement("div");
     m.className = "metrics";
     const found = `Found ${log.passages} passage${log.passages === 1 ? "" : "s"} in ${Math.round(log.searchMs || 0)} ms`;
-    m.textContent = log.status === "ok" ? `${found} · first word after ${fmtS(log.firstTokenMs)} · done in ${fmtS(log.totalMs)}` : `${found} · no answer`;
+    m.textContent = log.status === "ok" ? `${found} · first word after ${fmtS(log.firstTokenMs)} · done in ${fmtS(log.totalMs)}` : `${found} · ${log.status === "stopped" ? "stopped" : "no answer"}`;
     bot.insertBefore(m, det);
   }
 }
@@ -366,10 +368,12 @@ function renderOverview() {
   const avgSim = avg(state.activity.filter(a => a.topScore != null).map(a => a.topScore));
   const totalWords = state.docs.reduce((s, d) => s + words(d.text), 0);
   const failed = state.activity.length - ok.length;
+  const stopped = state.activity.filter(a => a.status === "stopped").length;
+  const notDone = [failed - stopped && `${failed - stopped} failed`, stopped && `${stopped} stopped`].filter(Boolean).join(", ");
   $("stats").innerHTML =
     stat(state.docs.length, "Documents", `${totalWords.toLocaleString()} words`) +
     stat(state.chunks.length, "Passages", "Searchable pieces of text") +
-    stat(ok.length, "Questions answered", state.activity.length ? `${state.activity.length} asked${failed ? `, ${failed} failed` : ""}` : "None asked yet") +
+    stat(ok.length, "Questions answered", state.activity.length ? `${state.activity.length} asked${notDone ? `, ${notDone}` : ""}` : "None asked yet") +
     stat(avgTotal == null ? "–" : fmtS(avgTotal), "Avg answer time", ok.length ? `First word after ${fmtS(avg(ok.map(a => a.firstTokenMs || 0)))}` : "No answers yet") +
     stat(avgSim == null ? "–" : matchLabel(avgSim), "Match quality", avgSim == null ? "No questions yet" : `Avg similarity ${avgSim.toFixed(2)}`);
 
@@ -428,7 +432,7 @@ function openDrawer(id) {
   const d = state.docs.find(x => x.id === id); if (!d) return;
   const cs = state.chunks.filter(c => c.docId === id).sort((a, b) => a.start - b.start);
   $("drawerTitle").textContent = d.name;
-  $("drawerMeta").textContent = `${words(d.text).toLocaleString()} words, ${cs.length} chunks, avg ${Math.round(cs.reduce((s, c) => s + c.text.length, 0) / (cs.length || 1))} characters`;
+  $("drawerMeta").textContent = `${words(d.text).toLocaleString()} words, ${cs.length} passage${cs.length === 1 ? "" : "s"}, avg ${Math.round(cs.reduce((s, c) => s + c.text.length, 0) / (cs.length || 1))} characters`;
   const cap = Math.min(cs.length, 300);
   let html = "";
   for (let i = 0; i < cap; i++) {
@@ -533,7 +537,10 @@ function route() {
 }
 
 // ================= Wiring
-function autosize() { const t = $("q"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 180) + "px"; }
+function autosize() {
+  const t = $("q"); t.style.height = "";
+  if (t.value && t.scrollHeight) t.style.height = Math.min(t.scrollHeight, 180) + "px";
+}
 $("q").addEventListener("input", autosize);
 $("q").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } });
 $("send").onclick = ask;

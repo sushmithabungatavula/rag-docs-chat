@@ -90,6 +90,17 @@ export function rankAll({ chunks, queryVec, query, bm25 }) {
   return { dense, sparse, byDense, bySparse, fused, order };
 }
 
+// Follow-ups like "what about flights?" or "is it paid?" need the previous question
+// to find the right passages. Standalone questions are searched as they are.
+const FOLLOW_START = /^(what about|how about|and|also|what else|why|how come|more|then)\b/i;
+const PRONOUN = /\b(it|its|that|this|these|those|they|them|their|there|he|she|him|her)\b/i;
+export function searchQuery(question, previous) {
+  const q = question.trim();
+  if (!previous) return q;
+  const short = (q.match(/\S+/g) || []).length <= 5;
+  return short || FOLLOW_START.test(q) || PRONOUN.test(q) ? `${q} ${previous.slice(0, 200)}` : q;
+}
+
 // Hybrid search: dense (semantic) + BM25 (keyword), fused with RRF, trimmed to topK and a character budget.
 export function hybridSearch({ chunks, queryVec, query, bm25, topK = TOP_K, budget = CONTEXT_BUDGET }) {
   const r = rankAll({ chunks, queryVec, query, bm25 });

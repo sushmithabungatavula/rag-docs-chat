@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chunkText, tokenize, buildBM25, rrf, hybridSearch } from "../rag.js";
+import { chunkText, tokenize, buildBM25, rrf, hybridSearch, searchQuery } from "../rag.js";
 import { sseToText } from "../api/chat.js";
 
 test("chunks cover the whole text, stay near target size, and overlap", () => {
@@ -51,4 +51,12 @@ test("chunk size and overlap settings are respected", () => {
   const c = chunkText({ id: "d", name: "d", text }, { size: 500, overlap: 0 });
   c.forEach(x => assert.ok(x.text.length <= 700));
   for (let i = 1; i < c.length; i++) assert.ok(c[i].start >= c[i - 1].end - 1);
+});
+
+test("follow-up questions carry the previous question into search", () => {
+  const prev = "How are travel expenses reimbursed?";
+  assert.equal(searchQuery("What about flights?", prev), "What about flights? " + prev);
+  assert.equal(searchQuery("Is it paid within a week for everyone?", prev), "Is it paid within a week for everyone? " + prev);
+  assert.equal(searchQuery("How many days of paid leave do employees get?", prev), "How many days of paid leave do employees get?");
+  assert.equal(searchQuery("What about flights?", ""), "What about flights?");
 });
